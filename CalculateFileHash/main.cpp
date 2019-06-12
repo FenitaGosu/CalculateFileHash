@@ -7,6 +7,7 @@
 
 #include "CommandLineParser.h"
 #include "BlockStreamReader.h"
+#include "SimpleThreadPool.h"
 
 int main(int argc, const char* argv[])
 {
@@ -42,6 +43,8 @@ int main(int argc, const char* argv[])
 
 		if (!outpuStream.is_open())
 			throw std::runtime_error("Could not open output file");
+
+		const auto threadPhool = std::make_unique<SimpleThreadPool>(2);
 
 		const auto reader = std::make_unique<BlockStreamReader>();
 
