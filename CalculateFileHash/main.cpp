@@ -44,11 +44,18 @@ int main(int argc, const char* argv[])
 		if (!outpuStream.is_open())
 			throw std::runtime_error("Could not open output file");
 
-		const auto threadPhool = std::make_unique<SimpleThreadPool>(2);
+		const auto threadPhool = std::make_unique<SimpleThreadPool>(SimpleThreadPool::GetMaxTreadAvailable() - 1, 20);
 
 		const auto reader = std::make_unique<BlockStreamReader>();
 
-		reader->Read(inputStream, blockSize, [](char* data, size_t blockSize, size_t number){});
+		reader->Read(inputStream, blockSize, [pool = threadPhool.get()](char* data, size_t blockSize, size_t number)
+		{
+			std::vector<char> copyData(data, data + blockSize);
+			pool->AddTask([copyData, blockSize, number]()
+			{
+				std::cout << copyData.size() << " "<< blockSize << " " << number << std::endl;
+			});
+		});
 
 		return EXIT_SUCCESS;
 	}

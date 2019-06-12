@@ -12,7 +12,7 @@ public:
 	static size_t GetMaxTreadAvailable();
 
 public:
-	SimpleThreadPool(size_t threadCount);
+	SimpleThreadPool(size_t threadCount, size_t maxTaskCount);
 	~SimpleThreadPool();
 
 	void AddTask(Task task);
