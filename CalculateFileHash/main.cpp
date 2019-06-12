@@ -2,26 +2,50 @@
 #include <cstdlib>
 #include <memory>
 #include <filesystem>
+#include <fstream>
+#include <stdexcept>
 
 #include "CommandLineParser.h"
+#include "BlockStreamReader.h"
 
 int main(int argc, const char* argv[])
 {
 	try
 	{
-		const auto parser = std::make_unique<CommandLineParser>("Programm usage:");
-
 		std::filesystem::path input;
 		std::filesystem::path output;
-		int blockSize;
+		size_t blockSize;
 
-		parser->AddHelpDescription();
+		{
+			const auto parser = std::make_unique<CommandLineParser>("Programm usage:");
 
-		parser->AddPathOption	("input,i"		, "intput file path"	, CommandLineParser::ArgumentSettings::Required		, input);
-		parser->AddPathOption	("output,o"		, "output file path"	, CommandLineParser::ArgumentSettings::Required		, output);
-		parser->AddIntOption	("size,s"		, "block size"			, CommandLineParser::ArgumentSettings::DefaultValue	, blockSize, 1);
+			parser->AddHelpDescription();
 
-		parser->Parse(argc, argv);
+			parser->AddOption("input,i"		, "intput file path"	, CommandLineParser::ArgumentSettings::Required		, input);
+			parser->AddOption("output,o"	, "output file path"	, CommandLineParser::ArgumentSettings::Required		, output);
+			parser->AddOption("size,s"		, "block size"			, CommandLineParser::ArgumentSettings::DefaultValue	, blockSize, 1024 * 1024);
+
+			parser->Parse(argc, argv);
+		}
+
+		if (blockSize == 0)
+			throw std::invalid_argument("Block size cannot be 0");
+
+		std::ifstream inputStream;
+		inputStream.open(input, std::ifstream::binary | std::ios::in);
+
+		if (!inputStream.is_open())
+			throw std::runtime_error("Could not open input file");
+
+		std::ofstream outpuStream;
+		outpuStream.open(output, std::ofstream::binary | std::ios::out);
+
+		if (!outpuStream.is_open())
+			throw std::runtime_error("Could not open output file");
+
+		const auto reader = std::make_unique<BlockStreamReader>();
+
+		reader->Read(inputStream, blockSize, [](char* data, size_t blockSize, size_t number){});
 
 		return EXIT_SUCCESS;
 	}

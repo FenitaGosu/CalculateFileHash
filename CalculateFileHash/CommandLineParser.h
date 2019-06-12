@@ -17,8 +17,8 @@ public:
 	~CommandLineParser();
 
 	void AddHelpDescription(const std::string& decription = std::string());
-	void AddPathOption(const std::string& name, const std::string& decription, ArgumentSettings settings, std::filesystem::path& path, const std::filesystem::path& defaultValue = std::filesystem::path());
-	void AddIntOption(const std::string& name, const std::string& decription, ArgumentSettings settings, int& value, int defaultValue = int());
+	void AddOption(const std::string& name, const std::string& decription, ArgumentSettings settings, std::filesystem::path& path, const std::filesystem::path& defaultValue = std::filesystem::path());
+	void AddOption(const std::string& name, const std::string& decription, ArgumentSettings settings, size_t& value, size_t defaultValue = size_t());
 
 	void Parse(int argc, const char* argv[]);
 

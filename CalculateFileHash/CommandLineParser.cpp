@@ -31,7 +31,7 @@ void CommandLineParser::AddHelpDescription(const std::string& decription)
 	m_impl->options.add_options()(HELP_STRING.c_str(), decription.c_str());
 }
 
-void CommandLineParser::AddPathOption(const std::string& name, const std::string& decription, ArgumentSettings settings, std::filesystem::path& path, const std::filesystem::path& defaultValue)
+void CommandLineParser::AddOption(const std::string& name, const std::string& decription, ArgumentSettings settings, std::filesystem::path& path, const std::filesystem::path& defaultValue)
 {
 	auto option = boost::program_options::value(&path);
 
@@ -43,7 +43,7 @@ void CommandLineParser::AddPathOption(const std::string& name, const std::string
 	m_impl->options.add_options()(name.c_str(), option, decription.c_str());
 }
 
-void CommandLineParser::AddIntOption(const std::string& name, const std::string& decription, ArgumentSettings settings, int& value, int defaultValue)
+void CommandLineParser::AddOption(const std::string& name, const std::string& decription, ArgumentSettings settings, size_t& value, size_t defaultValue)
 {
 	auto option = boost::program_options::value(&value);
 
