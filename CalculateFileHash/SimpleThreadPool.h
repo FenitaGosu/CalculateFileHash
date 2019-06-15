@@ -15,10 +15,12 @@ public:
 	SimpleThreadPool(size_t threadCount, size_t maxTaskCount);
 	~SimpleThreadPool();
 
+	void WaitForFinish();
+
 	void AddTask(Task task);
 
 private:
-	void ThreadFunction();
+	void Work();
 
 private:
 	struct Impl;

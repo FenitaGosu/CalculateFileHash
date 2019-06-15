@@ -9,12 +9,14 @@ void BlockStreamReader::Read(std::istream& stream, size_t blockSize, CallBack bl
 	size_t i = 0;
 	while (!stream.eof())
 	{
-		stream.read(buffer.data(), blockSize);
+		std::shared_ptr<char[]> buffer(new char[blockSize]);
+
+		stream.read(buffer.get(), blockSize);
 		const auto currentBlockSize = stream.gcount();
 		
 		if (stream.bad())
 			throw std::runtime_error("Input stream corrupted");
 
-		blockDataProcess(buffer.data(), currentBlockSize, i++);
+		blockDataProcess(std::move(buffer), currentBlockSize, i++);
 	}
 }

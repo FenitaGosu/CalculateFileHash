@@ -8,6 +8,13 @@
 #include "CommandLineParser.h"
 #include "BlockStreamReader.h"
 #include "SimpleThreadPool.h"
+#include "AsyncHashStreamWriter.h"
+#include "HashGeneratorBoostImpl.h"
+
+namespace {
+	constexpr size_t MAX_TASK_COUNT = 20;
+	constexpr size_t MAX_DATA_BLOCK_COUNT = 20;
+}
 
 int main(int argc, const char* argv[])
 {
@@ -39,23 +46,28 @@ int main(int argc, const char* argv[])
 			throw std::runtime_error("Could not open input file");
 
 		std::ofstream outpuStream;
-		outpuStream.open(output, std::ofstream::binary | std::ios::out);
+		outpuStream.open(output, std::ios::out);
 
 		if (!outpuStream.is_open())
 			throw std::runtime_error("Could not open output file");
 
-		const auto threadPhool = std::make_unique<SimpleThreadPool>(SimpleThreadPool::GetMaxTreadAvailable() - 1, 20);
+		const auto threadPhool	= std::make_unique<SimpleThreadPool>(SimpleThreadPool::GetMaxTreadAvailable() - 2, MAX_TASK_COUNT);
+		const auto writeHelper	= std::make_unique<AsyncHashStreamWriter>(MAX_DATA_BLOCK_COUNT, outpuStream);
+		const auto readHelper	= std::make_unique<BlockStreamReader>();
 
-		const auto reader = std::make_unique<BlockStreamReader>();
+		const std::unique_ptr<IHashGenerator> hashGeneratir = std::make_unique<HashGeneratorBoostImpl>();
 
-		reader->Read(inputStream, blockSize, [pool = threadPhool.get()](char* data, size_t blockSize, size_t number)
-		{
-			std::vector<char> copyData(data, data + blockSize);
-			pool->AddTask([copyData, blockSize, number]()
+		readHelper->Read(inputStream, blockSize, [pool = threadPhool.get(), writer = writeHelper.get(), hasher = hashGeneratir.get()](std::shared_ptr<char[]>&& data, size_t blockSize, size_t number)
+		{	
+			pool->AddTask([blockData = std::move(data), blockSize, number, writer, hasher]()
 			{
-				std::cout << copyData.size() << " "<< blockSize << " " << number << std::endl;
+				const auto hash = hasher->GenerateCRC32(blockData.get(), blockSize);
+				writer->AddHashToWrite(hash, number);
 			});
 		});
+
+		threadPhool->WaitForFinish();
+		writeHelper->WaitForFinish();
 
 		return EXIT_SUCCESS;
 	}

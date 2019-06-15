@@ -14,8 +14,8 @@ struct SimpleThreadPool::Impl
 	{
 	}
 
-	std::vector<std::thread> m_workers;
-	std::queue<Task> m_tasks;
+	std::vector<std::thread> workers;
+	std::queue<Task> tasks;
 	std::mutex tasksMutex;
 	std::condition_variable m_cVariable;
 	std::atomic<bool> m_isStop{ false };
@@ -33,20 +33,26 @@ size_t SimpleThreadPool::GetMaxTreadAvailable()
 SimpleThreadPool::SimpleThreadPool(size_t threadCount, size_t maxTaskCount)
 	: m_impl(std::make_unique<Impl>(maxTaskCount))
 {
-	m_impl->m_workers.reserve(threadCount);
+	m_impl->workers.reserve(threadCount);
 
-	std::generate_n(std::back_insert_iterator<std::vector<std::thread>>(m_impl->m_workers), threadCount, [this]()
+	std::generate_n(std::back_insert_iterator<std::vector<std::thread>>(m_impl->workers), threadCount, [this]()
 	{
-		return std::thread(std::bind(&SimpleThreadPool::ThreadFunction, this));
+		return std::thread(std::bind(&SimpleThreadPool::Work, this));
 	});
 }
 
 SimpleThreadPool::~SimpleThreadPool()
 {
+	if (!m_impl->m_isStop)
+		WaitForFinish();
+}
+
+void SimpleThreadPool::WaitForFinish()
+{
 	m_impl->m_isStop = true;
 	m_impl->m_cVariable.notify_all();
 
-	std::for_each(m_impl->m_workers.begin(), m_impl->m_workers.end(), std::bind(&std::thread::join, std::placeholders::_1));
+	std::for_each(m_impl->workers.begin(), m_impl->workers.end(), std::bind(&std::thread::join, std::placeholders::_1));
 }
 
 void SimpleThreadPool::AddTask(Task task)
@@ -59,17 +65,17 @@ void SimpleThreadPool::AddTask(Task task)
 		m_impl->m_maxCVariable.wait(guard, [impl = m_impl.get()]()
 		{
 			std::unique_lock<std::mutex> guard(impl->tasksMutex);
-			return impl->m_tasks.size() < impl->maxTaskCount;
+			return impl->tasks.size() < impl->maxTaskCount;
 		});
 	}
 
 	std::unique_lock<std::mutex> guard(m_impl->tasksMutex);
 
-	m_impl->m_tasks.push(task);
+	m_impl->tasks.push(task);
 	m_impl->m_cVariable.notify_one();
 }
 
-void SimpleThreadPool::ThreadFunction()
+void SimpleThreadPool::Work()
 {
 	while (true)
 	{
@@ -78,13 +84,13 @@ void SimpleThreadPool::ThreadFunction()
 		{
 			std::unique_lock<std::mutex> guard(m_impl->tasksMutex);
 
-			m_impl->m_cVariable.wait(guard, [impl = m_impl.get()]() { return impl->m_isStop || !impl->m_tasks.empty(); });
+			m_impl->m_cVariable.wait(guard, [impl = m_impl.get()]() { return impl->m_isStop || !impl->tasks.empty(); });
 
-			if (m_impl->m_isStop && m_impl->m_tasks.empty())
+			if (m_impl->m_isStop && m_impl->tasks.empty())
 				return;
 
-			currentTask = std::move(m_impl->m_tasks.front());
-			m_impl->m_tasks.pop();
+			currentTask = std::move(m_impl->tasks.front());
+			m_impl->tasks.pop();
 			m_impl->m_maxCVariable.notify_one();
 		}
 
