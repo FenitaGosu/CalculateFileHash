@@ -18,15 +18,15 @@ struct SimpleThreadPool::Impl
 	std::vector<std::thread> workers;
 	std::queue<Task> tasks;
 	std::mutex tasksMutex;
-	std::condition_variable m_cVariable;
-	std::atomic<bool> m_isStop{ false };
+	std::condition_variable condVariable;
+	std::atomic<bool> stoped{ false };
 
 	std::atomic<size_t> maxTaskCount;
-	std::mutex maxTasksMutex;
-	std::condition_variable m_maxCVariable;
+	std::mutex maxTaskMutex;
+	std::condition_variable maxCondVariable;
 };
 
-size_t SimpleThreadPool::GetMaxTreadAvailable()
+size_t SimpleThreadPool::GetMaxThreadAvailable()
 {
 	return std::thread::hardware_concurrency();
 }
@@ -44,26 +44,26 @@ SimpleThreadPool::SimpleThreadPool(size_t threadCount, size_t maxTaskCount)
 
 SimpleThreadPool::~SimpleThreadPool()
 {
-	if (!m_impl->m_isStop)
+	if (!m_impl->stoped)
 		WaitForFinish();
 }
 
 void SimpleThreadPool::WaitForFinish()
 {
-	m_impl->m_isStop = true;
-	m_impl->m_cVariable.notify_all();
+	m_impl->stoped = true;
+	m_impl->condVariable.notify_all();
 
 	std::for_each(m_impl->workers.begin(), m_impl->workers.end(), std::bind(&std::thread::join, std::placeholders::_1));
 }
 
 void SimpleThreadPool::AddTask(Task task)
 {
-	if (m_impl->m_isStop)
+	if (m_impl->stoped)
 		return;
 
 	{
-		std::unique_lock<std::mutex> guard(m_impl->maxTasksMutex);
-		m_impl->m_maxCVariable.wait(guard, [impl = m_impl.get()]()
+		std::unique_lock<std::mutex> guard(m_impl->maxTaskMutex);
+		m_impl->maxCondVariable.wait(guard, [impl = m_impl.get()]
 		{
 			std::unique_lock<std::mutex> guard(impl->tasksMutex);
 			return impl->tasks.size() < impl->maxTaskCount;
@@ -73,7 +73,7 @@ void SimpleThreadPool::AddTask(Task task)
 	std::unique_lock<std::mutex> guard(m_impl->tasksMutex);
 
 	m_impl->tasks.push(task);
-	m_impl->m_cVariable.notify_one();
+	m_impl->condVariable.notify_one();
 }
 
 void SimpleThreadPool::Work()
@@ -87,14 +87,14 @@ void SimpleThreadPool::Work()
 			{
 				std::unique_lock<std::mutex> guard(m_impl->tasksMutex);
 
-				m_impl->m_cVariable.wait(guard, [impl = m_impl.get()]() { return impl->m_isStop || !impl->tasks.empty(); });
+				m_impl->condVariable.wait(guard, [impl = m_impl.get()]() { return impl->stoped || !impl->tasks.empty(); });
 
-				if (m_impl->m_isStop && m_impl->tasks.empty())
+				if (m_impl->stoped && m_impl->tasks.empty())
 					return;
 
 				currentTask = std::move(m_impl->tasks.front());
 				m_impl->tasks.pop();
-				m_impl->m_maxCVariable.notify_one();
+				m_impl->maxCondVariable.notify_one();
 			}
 
 			currentTask();

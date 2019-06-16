@@ -9,7 +9,7 @@ public:
 	using Task = std::function<void()>;
 
 public:
-	static size_t GetMaxTreadAvailable();
+	static size_t GetMaxThreadAvailable();
 
 public:
 	SimpleThreadPool(size_t threadCount, size_t maxTaskCount);

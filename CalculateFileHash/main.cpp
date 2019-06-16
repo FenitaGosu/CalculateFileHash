@@ -58,7 +58,7 @@ int main(int argc, const char* argv[])
 		if (!outputStream.is_open())
 			throw std::runtime_error("Could not open output file");
 
-		const auto threadPool	= std::make_unique<SimpleThreadPool>(std::max(SimpleThreadPool::GetMaxTreadAvailable() - 2, 1ULL), maxTaskCount);
+		const auto threadPool	= std::make_unique<SimpleThreadPool>(std::max(SimpleThreadPool::GetMaxThreadAvailable() - 2, 1ULL), maxTaskCount);
 		const auto writeHelper	= std::make_unique<AsyncHashStreamWriter>(maxDataBlockCount, outputStream);
 		const auto readHelper	= std::make_unique<BlockStreamReader>();
 

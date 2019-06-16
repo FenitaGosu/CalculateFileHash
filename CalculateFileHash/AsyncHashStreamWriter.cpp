@@ -17,6 +17,7 @@ struct AsyncHashStreamWriter::Impl
 		, batchSize(batchSize)
 		, stream(stream)
 		, thread(threadFunction)
+		, lastNumber(-1)
 	{
 	}
 
@@ -27,8 +28,10 @@ struct AsyncHashStreamWriter::Impl
 
 	std::thread thread;
 	std::mutex queueMutex;
-	std::condition_variable m_cVariable;
-	std::atomic<bool> m_isStop{ false };
+	std::condition_variable conVariable;
+	std::atomic<bool> stoped{ false };
+
+	std::atomic<int> lastNumber;
 };
 
 AsyncHashStreamWriter::AsyncHashStreamWriter(size_t batchSize, std::ostream& stream)
@@ -38,26 +41,26 @@ AsyncHashStreamWriter::AsyncHashStreamWriter(size_t batchSize, std::ostream& str
 
 AsyncHashStreamWriter::~AsyncHashStreamWriter()
 {
-	if (!m_impl->m_isStop)
+	if (!m_impl->stoped)
 		WaitForFinish();
 }
 
 void AsyncHashStreamWriter::WaitForFinish()
 {
-	m_impl->m_isStop = true;
-	m_impl->m_cVariable.notify_all();
+	m_impl->stoped = true;
+	m_impl->conVariable.notify_all();
 	m_impl->thread.join();
 }
 
 void AsyncHashStreamWriter::AddHashToWrite(size_t hash, size_t number)
 {
-	if (m_impl->m_isStop)
+	if (m_impl->stoped)
 		return;
 
 	std::unique_lock<std::mutex> guard(m_impl->queueMutex);
 
 	m_impl->queue.emplace(number, hash);
-	m_impl->m_cVariable.notify_one();
+	m_impl->conVariable.notify_one();
 }
 
 void AsyncHashStreamWriter::Work()
@@ -67,36 +70,34 @@ void AsyncHashStreamWriter::Work()
 		while (true)
 		{
 			std::vector<size_t> hashes;
+			//std::vector<size_t> numbers;
 			{
 				std::unique_lock<std::mutex> guard(m_impl->queueMutex);
 
-				m_impl->m_cVariable.wait(guard, [impl = m_impl.get()]() { return impl->m_isStop || impl->queue.size() > impl->batchSize; });
+				m_impl->conVariable.wait(guard, [impl = m_impl.get()] { return impl->stoped || impl->queue.size() > impl->batchSize; });
 
-				if (m_impl->m_isStop && m_impl->queue.empty())
+				if (m_impl->stoped && m_impl->queue.empty())
 					return;
-
-				auto [currentNumber, currentHash] = m_impl->queue.top();
-				hashes.push_back(currentHash);
-
-				m_impl->queue.pop();
 
 				while (!m_impl->queue.empty())
 				{
 					auto& [number, hash] = m_impl->queue.top();
 
-					if ((number - currentNumber) != 1)
+					if ((number - m_impl->lastNumber) != 1)
 						break;
 
-					currentNumber = number;
+					m_impl->lastNumber = number;
 					hashes.push_back(hash);
+					//numbers.push_back(number);
 					m_impl->queue.pop();
 				}
 
-				if (m_impl->m_isStop && !m_impl->queue.empty())
+				if (m_impl->stoped && !m_impl->queue.empty())
 					throw std::logic_error("Not all blocks are added to the write");
 			}
 
 			std::copy(hashes.cbegin(), hashes.cend(), std::ostream_iterator<size_t>(m_impl->stream, "\n"));
+			//std::copy(numbers.cbegin(), numbers.cend(), std::ostream_iterator<size_t>(m_impl->stream, "\n"));
 		}
 	}
 	catch (std::exception& exp)
