@@ -4,6 +4,7 @@
 #include <mutex>
 #include <algorithm>
 #include <atomic>
+#include <iostream>
 
 #include "SimpleThreadPool.h"
 
@@ -77,23 +78,36 @@ void SimpleThreadPool::AddTask(Task task)
 
 void SimpleThreadPool::Work()
 {
-	while (true)
+	try
 	{
-		std::function<void()> currentTask;
-
+		while (true)
 		{
-			std::unique_lock<std::mutex> guard(m_impl->tasksMutex);
+			std::function<void()> currentTask;
 
-			m_impl->m_cVariable.wait(guard, [impl = m_impl.get()]() { return impl->m_isStop || !impl->tasks.empty(); });
+			{
+				std::unique_lock<std::mutex> guard(m_impl->tasksMutex);
 
-			if (m_impl->m_isStop && m_impl->tasks.empty())
-				return;
+				m_impl->m_cVariable.wait(guard, [impl = m_impl.get()]() { return impl->m_isStop || !impl->tasks.empty(); });
 
-			currentTask = std::move(m_impl->tasks.front());
-			m_impl->tasks.pop();
-			m_impl->m_maxCVariable.notify_one();
+				if (m_impl->m_isStop && m_impl->tasks.empty())
+					return;
+
+				currentTask = std::move(m_impl->tasks.front());
+				m_impl->tasks.pop();
+				m_impl->m_maxCVariable.notify_one();
+			}
+
+			currentTask();
 		}
-
-		currentTask();
+	}
+	catch (std::exception& exp)
+	{
+		std::cerr << exp.what();
+		return;
+	}
+	catch (...)
+	{
+		std::cerr << "Something went wrong";
+		return;
 	}
 }

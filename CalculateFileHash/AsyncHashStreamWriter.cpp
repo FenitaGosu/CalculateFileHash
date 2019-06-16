@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <atomic>
 #include <iterator>
+#include <iostream>
 
 #include "AsyncHashStreamWriter.h"
 
@@ -61,41 +62,54 @@ void AsyncHashStreamWriter::AddHashToWrite(size_t hash, size_t number)
 
 void AsyncHashStreamWriter::Work()
 {
-	while (true)
+	try
 	{
-		std::vector<size_t> hashes;
-		//std::vector<size_t> numbers;
-
+		while (true)
 		{
-			std::unique_lock<std::mutex> guard(m_impl->queueMutex);
+			std::vector<size_t> hashes;
+			//std::vector<size_t> numbers;
 
-			m_impl->m_cVariable.wait(guard, [impl = m_impl.get()]() { return impl->m_isStop || impl->queue.size() > impl->batchSize; });
-
-			if (m_impl->m_isStop && m_impl->queue.empty())
-				return;
-
-			auto [currentNumber, currentHash] = m_impl->queue.top();
-			hashes.push_back(currentHash);
-			//numbers.push_back(currentNumber);
-
-			m_impl->queue.pop();
-
-			while (!m_impl->queue.empty())
 			{
-				auto [number, hash] = m_impl->queue.top();
+				std::unique_lock<std::mutex> guard(m_impl->queueMutex);
 
-				if ((number - currentNumber) != 1)
-					break;
+				m_impl->m_cVariable.wait(guard, [impl = m_impl.get()]() { return impl->m_isStop || impl->queue.size() > impl->batchSize; });
 
-				currentNumber = number;
-				hashes.push_back(hash);
+				if (m_impl->m_isStop && m_impl->queue.empty())
+					return;
+
+				auto [currentNumber, currentHash] = m_impl->queue.top();
+				hashes.push_back(currentHash);
 				//numbers.push_back(currentNumber);
 
 				m_impl->queue.pop();
-			}
-		}
 
-		std::copy(hashes.cbegin(), hashes.cend(), std::ostream_iterator<size_t>(m_impl->stream, "\n"));
-		//std::copy(numbers.cbegin(), numbers.cend(), std::ostream_iterator<size_t>(m_impl->stream, "\n"));
+				while (!m_impl->queue.empty())
+				{
+					auto& [number, hash] = m_impl->queue.top();
+
+					if ((number - currentNumber) != 1)
+						break;
+
+					currentNumber = number;
+					hashes.push_back(hash);
+					//numbers.push_back(currentNumber);
+
+					m_impl->queue.pop();
+				}
+			}
+
+			std::copy(hashes.cbegin(), hashes.cend(), std::ostream_iterator<size_t>(m_impl->stream, "\n"));
+			//std::copy(numbers.cbegin(), numbers.cend(), std::ostream_iterator<size_t>(m_impl->stream, "\n"));
+		}
+	}
+	catch (std::exception& exp)
+	{
+		std::cerr << exp.what();
+		return;
+	}
+	catch (...)
+	{
+		std::cerr << "Something went wrong";
+		return;
 	}
 }
