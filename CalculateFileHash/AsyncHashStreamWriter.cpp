@@ -67,8 +67,6 @@ void AsyncHashStreamWriter::Work()
 		while (true)
 		{
 			std::vector<size_t> hashes;
-			//std::vector<size_t> numbers;
-
 			{
 				std::unique_lock<std::mutex> guard(m_impl->queueMutex);
 
@@ -79,7 +77,6 @@ void AsyncHashStreamWriter::Work()
 
 				auto [currentNumber, currentHash] = m_impl->queue.top();
 				hashes.push_back(currentHash);
-				//numbers.push_back(currentNumber);
 
 				m_impl->queue.pop();
 
@@ -92,14 +89,14 @@ void AsyncHashStreamWriter::Work()
 
 					currentNumber = number;
 					hashes.push_back(hash);
-					//numbers.push_back(currentNumber);
-
 					m_impl->queue.pop();
 				}
+
+				if (m_impl->m_isStop && !m_impl->queue.empty())
+					throw std::logic_error("Not all blocks are added to the write");
 			}
 
 			std::copy(hashes.cbegin(), hashes.cend(), std::ostream_iterator<size_t>(m_impl->stream, "\n"));
-			//std::copy(numbers.cbegin(), numbers.cend(), std::ostream_iterator<size_t>(m_impl->stream, "\n"));
 		}
 	}
 	catch (std::exception& exp)

@@ -40,6 +40,12 @@ int main(int argc, const char* argv[])
 		if (blockSize == 0)
 			throw std::invalid_argument("Block size cannot be 0");
 
+		if (maxTaskCount == 0)
+			throw std::invalid_argument("Max task count cannot be 0");
+
+		if (maxDataBlockCount == 0)
+			throw std::invalid_argument("Max data block count for output cannot be 0");
+
 		std::ifstream inputStream;
 		inputStream.open(input, std::ifstream::binary | std::ios::in);
 
