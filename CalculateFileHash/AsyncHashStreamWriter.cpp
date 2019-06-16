@@ -31,7 +31,7 @@ struct AsyncHashStreamWriter::Impl
 	std::condition_variable conVariable;
 	std::atomic<bool> stoped{ false };
 
-	std::atomic<int> lastNumber;
+	std::atomic<long long> lastNumber;
 };
 
 AsyncHashStreamWriter::AsyncHashStreamWriter(size_t batchSize, std::ostream& stream)
