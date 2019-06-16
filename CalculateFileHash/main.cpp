@@ -46,19 +46,19 @@ int main(int argc, const char* argv[])
 		if (!inputStream.is_open())
 			throw std::runtime_error("Could not open input file");
 
-		std::ofstream outpuStream;
-		outpuStream.open(output, std::ios::out);
+		std::ofstream outputStream;
+		outputStream.open(output, std::ios::out);
 
-		if (!outpuStream.is_open())
+		if (!outputStream.is_open())
 			throw std::runtime_error("Could not open output file");
 
-		const auto threadPhool	= std::make_unique<SimpleThreadPool>(std::max(SimpleThreadPool::GetMaxTreadAvailable() - 2, 1ULL), maxTaskCount);
-		const auto writeHelper	= std::make_unique<AsyncHashStreamWriter>(maxDataBlockCount, outpuStream);
+		const auto threadPool	= std::make_unique<SimpleThreadPool>(std::max(SimpleThreadPool::GetMaxTreadAvailable() - 2, 1ULL), maxTaskCount);
+		const auto writeHelper	= std::make_unique<AsyncHashStreamWriter>(maxDataBlockCount, outputStream);
 		const auto readHelper	= std::make_unique<BlockStreamReader>();
 
-		const std::unique_ptr<IHashGenerator> hashGeneratir = std::make_unique<HashGeneratorBoostImpl>();
+		const std::unique_ptr<IHashGenerator> hashGenerator = std::make_unique<HashGeneratorBoostImpl>();
 
-		readHelper->Read(inputStream, blockSize, [pool = threadPhool.get(), writer = writeHelper.get(), hasher = hashGeneratir.get()](std::shared_ptr<char[]>&& data, size_t blockSize, size_t number)
+		readHelper->Read(inputStream, blockSize, [pool = threadPool.get(), writer = writeHelper.get(), hasher = hashGenerator.get()](std::shared_ptr<char[]>&& data, size_t blockSize, size_t number)
 		{	
 			pool->AddTask([blockData = std::move(data), blockSize, number, writer, hasher]()
 			{
@@ -67,7 +67,7 @@ int main(int argc, const char* argv[])
 			});
 		});
 
-		threadPhool->WaitForFinish();
+		threadPool->WaitForFinish();
 		writeHelper->WaitForFinish();
 
 		return EXIT_SUCCESS;
