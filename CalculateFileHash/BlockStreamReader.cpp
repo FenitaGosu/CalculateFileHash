@@ -7,8 +7,6 @@ void BlockStreamReader::Read(std::istream& stream, size_t blockSize, CallBack bl
 {
 	try
 	{
-		std::vector<char> buffer(blockSize);
-
 		size_t i = 0;
 		while (!stream.eof())
 		{
