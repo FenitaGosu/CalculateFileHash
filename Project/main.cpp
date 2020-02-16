@@ -6,11 +6,11 @@
 #include <stdexcept>
 #include <algorithm>
 
-#include "CommandLineParser.h"
-#include "BlockStreamReader.h"
-#include "SimpleThreadPool.h"
-#include "AsyncHashStreamWriter.h"
-#include "HashGeneratorBoostImpl.h"
+#include "Parser/CommandLineParser.h"
+#include "Reader/BlockStreamReader.h"
+#include "ThreadPool/SimpleThreadPool.h"
+#include "Writer/AsyncHashStreamWriter.h"
+#include "HashGenerator/HashGeneratorBoostImpl.h"
 
 namespace
 {
